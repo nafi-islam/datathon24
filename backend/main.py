@@ -24,7 +24,7 @@ load_dotenv()
 
 #get key + check
 api_key = os.getenv('api_key')
-print(f"API Key Loaded: {api_key}")
+#print(f"API Key Loaded: {api_key}")
 
 #initialize clinet + flask
 client = OpenAI(api_key)
