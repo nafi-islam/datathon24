@@ -1,12 +1,16 @@
 import asyncio
 from openai import AsyncOpenAI
+import os
 
 # import the key 
-OPENAI_API_KEY = ""
+OPENAI_API_KEY = os.getenv("API_KEY")
 
 # word input list
 words = ["apple", "banana", "carrot", "date", "elephant", "fig", "grape", "horse", 
         "iguana", "jackfruit", "kiwi", "lemon", "mango", "nectarine", "orange", "peach"]
+
+words2 = ['apple','banana','carrot','dog','elephant','flute','grape','hat','ice','jaguar',
+          'kiwi','lion','mango','nectar','orange','pineapple']
 
 async def get_grouped_words(words):
     # chatgpt prompt
@@ -31,6 +35,8 @@ async def get_grouped_words(words):
 
 async def main():
     grouped_words_output = await get_grouped_words(words)
+    print("Grouped Words:\n", grouped_words_output)
+    grouped_words_output = await get_grouped_words(words2)
     print("Grouped Words:\n", grouped_words_output)
 
 if __name__ == "__main__":
