@@ -1,57 +1,73 @@
 import numpy as np
-from sklearn.cluster import KMeans
-from sklearn.metrics.pairwise import cosine_similarity
-from transformers import pipeline
+import networkx as nx
+import community.community_louvain as community_louvain 
+from scipy.special import expit
+from itertools import combinations
 
-embedding_model = pipeline("feature-extraction", model="sentence-transformers/all-MiniLM-L6-v2")
+# Define the words array
+# words = ["EXPONENT", "POWER", "RADICAL", "ROOT",
+#          "BENT", "GNARLY", "TWISTED", "WARPED",
+#          "LICK", "OUNCE", "SHRED", "TRACE",
+#          "BATH", "POWDER", "REST", "THRONE"]
 
-words = ["EXPONENT", "POWER", "RADICAL", "ROOT",
-         "BENT", "GNARLY", "TWISTED", "WARPED",
+words = ["EXPONENT", "GNARLY", "RADICAL", "THRONE",
+         "BENT", "POWDER", "TWISTED", "WARPED",
          "LICK", "OUNCE", "SHRED", "TRACE",
-         "BATH", "POWDER", "REST", "THRONE"]
+         "BATH", "POWER", "REST", "ROOT"]
 
-# Step 1
-embeddings = [np.mean(embedding_model(word)[0], axis=0) for word in words]
+# words = ["BUNS", "BUNK", "CANOPY","SEAT",
+#          "LIFESAVER", "DONUT", "BOTTOM", "FEZ",
+#          "BOWLER", "CHEERIO", "FEDORA", "TRUNDLE",
+#          "MURPHY", "BAGEL", "TAIL", "BERET"]
 
-# Step 2
-kmeans = KMeans(n_clusters=4, random_state=0, n_init=10).fit(embeddings)
-labels = kmeans.labels_
+# Generate synthetic embeddings
+rng = np.random.default_rng(seed=42)
+word_embeddings = rng.normal(size=(len(words), 50))  # 50-dimensional embeddings
 
-# Step 3
-clusters = {i: [] for i in range(4)}
-for idx, label in enumerate(labels):
-    clusters[label].append((words[idx], embeddings[idx]))
+# Build graph with weighted edges
+G = nx.Graph()
+for i, word in enumerate(words):
+    G.add_node(i, label=word)
 
-# Step 4: 4 words and cosine similarity
-refined_clusters = {}
-for cluster_id, word_embeddings in clusters.items():
-    if len(word_embeddings) > 4:
-        # cosine similarities within a cluster
-        cluster_embeddings = np.array([embedding for _, embedding in word_embeddings])
-        similarity_matrix = cosine_similarity(cluster_embeddings)
+for i, j in combinations(range(len(words)), 2):
+    similarity_score = np.dot(word_embeddings[i], word_embeddings[j]) / (
+        np.linalg.norm(word_embeddings[i]) * np.linalg.norm(word_embeddings[j])
+    )
+    belief_score = expit(similarity_score)  # Scale similarity to [0, 1]
+    G.add_edge(i, j, weight=belief_score)
 
-        # choose 4 words with highest average similarity in each cluster
-        avg_similarities = similarity_matrix.mean(axis=1)
-        top_indices = np.argsort(avg_similarities)[-4:]
+# Louvain algorithm to detect communities
+partition = community_louvain.best_partition(G, weight='weight', resolution=1.0)
 
-        refined_clusters[cluster_id] = [word_embeddings[i][0] for i in top_indices]
-    else:
-        # if the cluster has 4 or fewer words, keep all of them
-        refined_clusters[cluster_id] = [word for word, _ in word_embeddings]
+# Organize nodes by community
+clusters = {}
+for node, community_id in partition.items():
+    clusters.setdefault(community_id, []).append(words[node])
 
-# check exactly 4 words per cluster 
-for cluster_id in refined_clusters:
-    if len(refined_clusters[cluster_id]) < 4:
-        remaining_words = [word for word in words if word not in sum(refined_clusters.values(), [])]
-        remaining_embeddings = [embedding_model(word)[0] for word in remaining_words]
-        
-        # calculate cosine similarity to the cluster center
-        cluster_center = kmeans.cluster_centers_[cluster_id]
-        distances = [(remaining_words[i], np.linalg.norm(embedding - cluster_center)) for i, embedding in enumerate(remaining_embeddings)]
-        distances.sort(key=lambda x: x[1])
-        
-        # add the closest words until cluster has 4
-        refined_clusters[cluster_id].extend([word for word, _ in distances[:4 - len(refined_clusters[cluster_id])]])
+# Ensure exactly four clusters of four words
+def refine_clusters(clusters):
+    flat_clusters = [c for c in clusters.values()]
 
-for cluster_id, words_in_cluster in refined_clusters.items():
-    print(f"Cluster {cluster_id + 1}: {words_in_cluster}")
+    # Split clusters larger than 4 words
+    refined_clusters = []
+    for cluster in flat_clusters:
+        while len(cluster) > 4:
+            refined_clusters.append(cluster[:4])
+            cluster = cluster[4:]
+        if cluster:
+            refined_clusters.append(cluster)
+
+    # Merge small clusters until four remain
+    while len(refined_clusters) > 4:
+        smallest = min(refined_clusters, key=len)
+        refined_clusters.remove(smallest)
+        refined_clusters[0].extend(smallest)
+
+    return refined_clusters[:4]
+
+# Refine clusters to four groups of four
+final_clusters = refine_clusters(clusters)
+
+# Print final clusters
+for i, cluster in enumerate(final_clusters, 1):
+    print(f"Cluster {i}: {', '.join(cluster)}")
