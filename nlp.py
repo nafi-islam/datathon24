@@ -1,57 +1,122 @@
-import numpy as np
+import random
+import spacy
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
-from transformers import pipeline
+import numpy as np
 
-embedding_model = pipeline("feature-extraction", model="sentence-transformers/all-MiniLM-L6-v2")
+# spaCy's English model
+nlp = spacy.load("en_core_web_lg")
 
-words = ["EXPONENT", "POWER", "RADICAL", "ROOT",
-         "BENT", "GNARLY", "TWISTED", "WARPED",
-         "LICK", "OUNCE", "SHRED", "TRACE",
-         "BATH", "POWDER", "REST", "THRONE"]
+# Define words
+# words = ["BENT", "OUNCE", "TWISTED", "ROOT", "LICK", "POWER", "SHRED", "WARPED", "BATH", 
+#          "POWDER", "REST", "TRACE", "EXPONENT", "GNARLY", "RADICAL", "THRONE"]
 
-# Step 1
-embeddings = [np.mean(embedding_model(word)[0], axis=0) for word in words]
+# Output:
+# Cluster 1: ['EXPONENT', 'RADICAL', 'POWDER', 'SHRED']
+# Cluster 2: ['POWER', 'REST', 'TRACE', 'ROOT']
+# Cluster 3: ['LICK', 'BATH', 'TWISTED', 'THRONE']
+# Cluster 4: ['BENT', 'GNARLY', 'WARPED', 'OUNCE']
 
-# Step 2
-kmeans = KMeans(n_clusters=4, random_state=0, n_init=10).fit(embeddings)
-labels = kmeans.labels_
+# words = ["JAGUAR", "TIGER", "LION", "CHEETAH", "BLUE", "PINK", "RED", "YELLOW",
+#          "BEST BOY", "KRONER", "IDEA", "STABLES", "STEER", "DIRECT", "GUIDE", "LEAD"]
 
-# Step 3
-clusters = {i: [] for i in range(4)}
-for idx, label in enumerate(labels):
-    clusters[label].append((words[idx], embeddings[idx]))
+# Output: 
+# Cluster 1: ['BLUE', 'RED', 'PINK', 'YELLOW']
+# Cluster 2: ['JAGUAR', 'LION', 'CHEETAH', 'TIGER']
+# Cluster 3: ['GUIDE', 'STABLES', 'BEST BOY', 'DIRECT']
+# Cluster 4: ['IDEA', 'LEAD', 'STEER', 'KRONER']
 
-# Step 4: 4 words and cosine similarity
-refined_clusters = {}
-for cluster_id, word_embeddings in clusters.items():
-    if len(word_embeddings) > 4:
-        # cosine similarities within a cluster
-        cluster_embeddings = np.array([embedding for _, embedding in word_embeddings])
-        similarity_matrix = cosine_similarity(cluster_embeddings)
+# words = ["apple", "banana", "car", "truck", "strawberry", "peach", "engine", "tire", 
+#          "phone", "laptop", "monitor", "keyboard","guitar", "drum", "piano", "flute"]
 
-        # choose 4 words with highest average similarity in each cluster
-        avg_similarities = similarity_matrix.mean(axis=1)
-        top_indices = np.argsort(avg_similarities)[-4:]
+# Output:
+# Cluster 1: ['peach', 'banana', 'apple', 'strawberry']
+# Cluster 2: ['laptop', 'phone', 'monitor', 'keyboard']
+# Cluster 3: ['truck', 'car', 'tire', 'engine']
+# Cluster 4: ['drum', 'piano', 'flute', 'guitar']
 
-        refined_clusters[cluster_id] = [word_embeddings[i][0] for i in top_indices]
+# words = ['Tizzy', 'Rapid', 'Wave', 'Normal', 'Rinse', 'Quick', 'Shape', 'Sweat',
+#          'Sanitize', 'Health', 'Lather', 'Cascade', 'Stew', 'Current', 'Form', 'Condition']
+
+# words = ["BUNS", "BUNK", "CANOPY","SEAT", "LIFESAVER", "DONUT", "BOTTOM", "FEZ",
+#          "BOWLER", "CHEERIO", "FEDORA", "TRUNDLE", "MURPHY", "BAGEL", "TAIL", "BERET"]
+
+# Output:
+# Cluster 1: ['Tizzy', 'Sweat', 'Lather', 'Form']
+# Cluster 2: ['Normal', 'Cascade', 'Rapid', 'Quick']
+# Cluster 3: ['Wave', 'Shape', 'Condition', 'Health']
+# Cluster 4: ['Current', 'Stew', 'Sanitize', 'Rinse']
+
+# words = ['link', 'horseshoe', 'pencil', 'walrus', 'toward', 'date', 'bond', 'relation',
+#         'concerning', 'space', 'tie', 'handlebar', 'about', 'on', 'dutch', 'jeopardy']
+
+# Output:
+# Cluster 1: ['date', 'horseshoe', 'walrus', 'tie']
+# Cluster 2: ['about', 'relation', 'toward', 'concerning']
+# Cluster 3: ['handlebar', 'jeopardy', 'bond', 'space']
+# Cluster 4: ['dutch', 'on', 'link', 'pencil']
+
+# words = ["biotin", "sepak", "twister", "sorry", "finland", "riboflavin", "niacin","boccia", 
+#          "kabaddi", "risk", "chess", "sweden", "iceland", "folate", "denmark", "jai-alai"]
+
+# Output:
+# Cluster 1: ['finland', 'denmark', 'sweden', 'iceland']
+# Cluster 2: ['biotin', 'niacin', 'folate', 'riboflavin']
+# Cluster 3: ['risk', 'sorry', 'jai-alai', 'chess']
+# Cluster 4: ['twister', 'kabaddi', 'boccia', 'sepak']
+
+words = ["cask", "cylinder", "drum", "tank", "pilot", "shepard", "steer", "usher",
+         "cowboy", "jet", "ram", "raven", "golfer", "pendulum", "saloon doors", "swing"]
+
+# Output:
+# Cluster 1: ['shepard', 'raven', 'cylinder', 'tank']
+# Cluster 2: ['pendulum', 'swing', 'drum', 'golfer']
+# Cluster 3: ['steer', 'cask', 'jet', 'cowboy']
+# Cluster 4: ['saloon doors', 'pilot', 'usher', 'ram']
+
+random.shuffle(words)
+
+print("Shuffled words:", words)
+
+# embeddings using spaCy
+word_vectors = [nlp(word).vector for word in words]
+
+# similarity matrix using cosine similarity 
+similarity_matrix = cosine_similarity(word_vectors)
+
+# KMeans clustering
+num_clusters = 4
+kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+labels = kmeans.fit_predict(word_vectors)
+
+# group words by initial KMeans cluster assignment
+clusters = {i: [] for i in range(num_clusters)}
+for i, label in enumerate(labels):
+    clusters[label].append(words[i])
+
+# adjust clusters to ensure each has exactly four words
+final_clusters = []
+remaining_words = []
+
+# get clusters with more or fewer than 4 words
+for cluster_id, cluster_words in clusters.items():
+    if len(cluster_words) == 4:
+        final_clusters.append(cluster_words)
     else:
-        # if the cluster has 4 or fewer words, keep all of them
-        refined_clusters[cluster_id] = [word for word, _ in word_embeddings]
+        remaining_words.extend(cluster_words)
 
-# check exactly 4 words per cluster 
-for cluster_id in refined_clusters:
-    if len(refined_clusters[cluster_id]) < 4:
-        remaining_words = [word for word in words if word not in sum(refined_clusters.values(), [])]
-        remaining_embeddings = [embedding_model(word)[0] for word in remaining_words]
-        
-        # calculate cosine similarity to the cluster center
-        cluster_center = kmeans.cluster_centers_[cluster_id]
-        distances = [(remaining_words[i], np.linalg.norm(embedding - cluster_center)) for i, embedding in enumerate(remaining_embeddings)]
-        distances.sort(key=lambda x: x[1])
-        
-        # add the closest words until cluster has 4
-        refined_clusters[cluster_id].extend([word for word, _ in distances[:4 - len(refined_clusters[cluster_id])]])
+# check clusters have exactly 4 words by adding remaining words
+for cluster in final_clusters:
+    if len(cluster) < 4:
+        needed_words = 4 - len(cluster)
+        cluster.extend(remaining_words[:needed_words])
+        remaining_words = remaining_words[needed_words:]
 
-for cluster_id, words_in_cluster in refined_clusters.items():
-    print(f"Cluster {cluster_id + 1}: {words_in_cluster}")
+# create new clusters for any remaining words in case of uneven distribution
+while remaining_words:
+    final_clusters.append(remaining_words[:4])
+    remaining_words = remaining_words[4:]
+
+# print the final clusters
+for i, cluster_words in enumerate(final_clusters):
+    print(f"Cluster {i + 1}: {cluster_words}")
