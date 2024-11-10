@@ -3,9 +3,10 @@ from dotenv import load_dotenv
 import os
 #from openai import OpenAI
 import unittest
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
+#import asyncio
 
-#----------- TASK ----------
+#------------ TASK -------------
 
 #TASK:
 #make a route, use Open AI API, create API key and hide in .env file, use gitignore
@@ -33,20 +34,20 @@ api_key = os.getenv('API_KEY')
 client = OpenAI(api_key=api_key)
 
 
-#---------INITIAL TEST ROUTES---------
+#---------INITIAL TEST ROUTES------------
 
 #initialize clinet + flask
 #client = OpenAI(api_key)
 app = Flask(__name__)
 
 #ALL ROUTES
-@app.route("/")
-def hello_world():
-    return "<p>Hello, World!</p>"
+# @app.route("/")
+# def hello_world():
+#     return "<p>Hello, World!</p>"
 
-@app.route("/yo")
-def yo_world():
-    return "<p>Yo!<p>"
+# @app.route("/yo")
+# def yo_world():
+#     return "<p>Yo!<p>"
 
 @app.route("/testing-input")
 def test_input():
@@ -59,13 +60,18 @@ def test_input():
 #FUNCTION 2
 #Function 2: parse the response, get the grouping, make and return into an array
 def parse_groupings(response):
-    groups = []
-    lines = response.splitlines()
+    response = response.replace(',', '')
+    response = response.replace('[', '')
+    response = response.replace(']','')
+    words = [i.strip() for i in response.split(' ')]
 
-    for line in lines:
-        if line.startswith("Group"):
-            words = line.split(":")[1].strip().split(",")
-            groups.append([word.strip() for word in words])
+    groups = [words[i:i+4] for i in range(0, len(words), 4)]
+        
+
+    #for line in lines:
+    #    if line.startswith("Group"):
+    #        words = line.split(":")[1].strip().split(",")
+    #        groups.append([word.strip() for word in words])
     
     return groups
 
@@ -73,7 +79,6 @@ def parse_groupings(response):
 #Function 1: Use API, make a call, take in a 1D array, method passes to the prompt (use prompt engr), API call function 
 @app.route("/get-groupings", methods=["GET"])
 def get_groupings():
-    print('called')
     #get input
     words_input = request.args.get('words', '')
     if not words_input:
@@ -85,27 +90,29 @@ def get_groupings():
     if len(words_list) != 16:
         return "<p>Must be exactly 16 words</p>"
 
-    #PROMPT ENGR for chatGPT to use
-    #WILL NEED TO CHANGE PROMPT (play around with gpt)
-    prompt = f"Categorize these words into 4 groups of 4 words each similar to the New York Times Connections Game: {', '.join(words_list)}"
-
-    # Make API call
-    #idk if this works
-
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": "Write a haiku about recursion in programming."
-            }
-        ]
+    # chatgpt prompt
+    prompt = (
+        f"Please group the following words into groups of 4 in a logical way to beat the game Connections: {', '.join(words_list)}. Provide the groups as a list of 4 lists of the grouped words. Do not say anything else. Only give the list. Example: '[[object 1, object 2, object 3, object 4], [object 1, object 2, object 3, object 4], [object 5, object 6, object 7, object 8], [object 9, object 10, object 11, object 12]]'. Do not add quotation marks."
     )
 
-    print(completion.choices[0].message)
- 
-    return f"API response: {completion.choices[0].message['content']}"
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+        )
+        print(str(completion.choices[0].message.content))
+        response_content = completion.choices[0].message.content
+        groups = parse_groupings(response_content)
+        return f'<p>Grouped Words: {groups}</p>'
+
+    except Exception as e:
+        return f"<p>Error: {e}</p>"
 
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)  
+    app.run(debug=True)
+
+
+
+#use confdenct score , judge based on if its confident enough, if not confident try again

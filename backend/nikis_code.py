@@ -90,22 +90,18 @@ def get_groupings():
     prompt = f"Categorize these words into 4 groups of 4 words each similar to the New York Times Connections Game: {', '.join(words_list)}"
 
     # Make API call
-    #idk if this works
-
+    #major thing thats diff
     completion = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": "Write a haiku about recursion in programming."
-            }
-        ]
+            {"role": "system", "content": "You are a New York Times' Connections game expert."},
+            {"role": "user", "content": prompt}
+        ],
     )
 
     print(completion.choices[0].message)
  
-    return f"API response: {completion.choices[0].message['content']}"
+    return f"API response: {completion.choices[0].message.content}"
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False)  
