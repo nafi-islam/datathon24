@@ -2,8 +2,8 @@ from flask import Flask, request
 from dotenv import load_dotenv
 import os
 #from openai import OpenAI
+import openai
 import unittest
-from openai import OpenAI
 
 #----------- TASK ----------
 
@@ -29,9 +29,7 @@ load_dotenv()
 
 #get key + check
 api_key = os.getenv('API_KEY')
-
-client = OpenAI(api_key=api_key)
-
+openai.api_key = api_key; #set the API key
 
 #---------INITIAL TEST ROUTES---------
 
@@ -54,58 +52,75 @@ def test_input():
     print(name)
     return f'<p>{name}<p>'
 
+#----------- TEST API SEPARATELY --------------
+
+#TEST API CALL SEPARATELY
+def test_API(words_list):
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{
+            "role": "user",
+            "content": prompt,
+        }],
+    )
+    return response
+
+
 #-------------- FUNCTIONS ---------------
-
-#FUNCTION 2
-#Function 2: parse the response, get the grouping, make and return into an array
-def parse_groupings(response):
-    groups = []
-    lines = response.splitlines()
-
-    for line in lines:
-        if line.startswith("Group"):
-            words = line.split(":")[1].strip().split(",")
-            groups.append([word.strip() for word in words])
-    
-    return groups
 
 #FUNCTION 1
 #Function 1: Use API, make a call, take in a 1D array, method passes to the prompt (use prompt engr), API call function 
 @app.route("/get-groupings", methods=["GET"])
 def get_groupings():
-    print('called')
     #get input
     words_input = request.args.get('words', '')
     if not words_input:
-        return "<p> No Input</p>"
+        return "<p> No Input<p>"
 
     #convert into list
     #make sure words are split by , and maybe " ", 16 words only
     words_list = [word.strip() for word in words_input.split(",")]
     if len(words_list) != 16:
-        return "<p>Must be exactly 16 words</p>"
+        return "<p>Must be exactly 16 words<p>"
 
     #PROMPT ENGR for chatGPT to use
     #WILL NEED TO CHANGE PROMPT (play around with gpt)
     prompt = f"Categorize these words into 4 groups of 4 words each similar to the New York Times Connections Game: {', '.join(words_list)}"
 
     # Make API call
-    #idk if this works
-
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {
-                "role": "user",
-                "content": "Write a haiku about recursion in programming."
-            }
-        ]
+    response = openai.ChatCompletion.create(
+        model="gpt-4",  # Ensure you are using the correct model
+        messages=[{
+            "role": "user",
+            "content": prompt,
+        }],
     )
 
-    print(completion.choices[0].message)
- 
-    return f"API response: {completion.choices[0].message['content']}"
+    #print response
+    print(f"Request ID: {response['id']}")
+
+
+#FUNCTION 2
+#Function 2: parse the response, get the grouping, make and return into an array
+
+#----------- UNIT TEST --------------
+
+#UNIT TEST
+class TestAPI(unittest.TestCase):
+    def test_call_openai_api(self):
+        # Example input
+        words_list = ["apple", "banana", "carrot", "dog", "elephant", "flute", "grape", "hat", "ice", "jaguar", "kiwi", "lion", "mango", "nectar", "orange", "pineapple"]
+
+        # Call the function
+        response = call_openai_api(words_list)
+
+        # Assertions
+        self.assertIsNotNone(response)
+        self.assertIn('choices', response)  # Ensure response contains 'choices'
+        self.assertGreater(len(response['choices']), 0)  # Ensure there is at least one choice
+
+        # Additional checks depending on your expected API response format
+        print(f"Response: {response}")
 
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)  
+    unittest.main()
